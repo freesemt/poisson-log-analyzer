@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "poisson-log-analyzer"
+version = "0.1.0"
+description = "Web server access-log analyzer that detects traffic spikes with a Poisson model"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = ["numpy", "scipy"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+poisson-log-analyzer = "poisson_log_analyzer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
