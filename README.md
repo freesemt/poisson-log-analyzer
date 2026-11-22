@@ -13,6 +13,7 @@ P(X ≥ k | λ). Windows with very small probability are anomalies.
 - **Baseline λ** is fitted robustly: windows flagged as spikes are excluded and λ is re-fitted until stable.
 - **Multiple testing** across windows is controlled with Benjamini–Hochberg FDR.
 - **Dispersion index** (variance/mean of baseline windows) checks the Poisson assumption; values well above 1 mean the traffic is over-dispersed and p-values are too optimistic.
+- **Sustained shifts.** The count test judges each window alone, so a long but modest elevation can slip through. A second test marks each window as above or below the median and asks whether the longest run of "above" windows is too long for independent windows, using the exact distribution of Schilling (1990). It is robust to over-dispersion. The CLI runs both tests, each at α/2.
 
 ## Usage
 
@@ -21,6 +22,30 @@ pip install -e .[dev]
 poisson-log-analyzer access.log --window 60 --alpha 0.01
 pytest
 ```
+
+Example output (`SPIKE` = single windows with improbably high counts, `SUSTAINED` = longest run of above-median windows):
+
+```text
+warning: 1 line(s) could not be parsed and were skipped
+1110 requests, 120 windows of 60s
+baseline rate: 9.25 req/window, dispersion: 1.40
+no spikes detected
+SUSTAINED 2025-01-01T00:54:00+00:00 .. 2025-01-01T01:09:00+00:00  windows=16  p=0.000165
+```
+
+Lines that cannot be parsed are counted and reported on stderr. Requests with an empty or malformed request line (HTTP 400/408) are kept as requests with method and path `-`.
+
+```python
+from poisson_log_analyzer import parse_lines, bin_counts, analyze
+
+entries = parse_lines(open("access.log"))
+start, counts = bin_counts(e.timestamp for e in entries)
+result = analyze(counts, alpha=0.01)
+result.spikes.flagged, result.spikes.rate, result.spikes.dispersion
+result.sustained, result.run.start, result.run.length, result.run.p_value
+```
+
+Supported input: Apache/Nginx common and combined log formats.
 
 ## Notebook experiments
 
@@ -41,20 +66,14 @@ for readers without a statistics background, in English and Japanese, with
 interactive sliders (λ, p-values, multiple-testing false alarms, baseline re-fitting,
 dispersion, and the real pipeline).
 
-```python
-from poisson_log_analyzer import parse_lines, bin_counts, detect_spikes
-
-entries = parse_lines(open("access.log"))
-start, counts = bin_counts(e.timestamp for e in entries)
-result = detect_spikes(counts, alpha=0.01)
-result.flagged, result.rate, result.dispersion
-```
-
-Supported input: Apache/Nginx common and combined log formats.
+[`notebooks/longest_run.ipynb`](notebooks/longest_run.ipynb) is the experiment behind the
+sustained-shift test: the exact longest-run distribution checked against Schilling's
+Table 2, detection power and false alarms compared with the count test.
 
 ## Roadmap
 
-- Time-of-day / weekly seasonality (non-homogeneous Poisson rate)
+- Time-of-day / weekly seasonality (non-homogeneous Poisson rate); the run test also needs it, since a daily cycle produces long runs
 - Negative binomial fallback for over-dispersed traffic
 - Per-IP, per-path and per-status (e.g. 4xx/5xx) rates
-- Dips (unusually low traffic) as well as spikes
+- Dips (unusually low traffic) as well as spikes, e.g. runs below the median
+- Seed the baseline re-fit with the run test's window set

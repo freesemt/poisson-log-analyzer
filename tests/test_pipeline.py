@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import numpy as np
 
 from poisson_log_analyzer import bin_counts, detect_spikes, parse_line, parse_lines
@@ -12,8 +14,26 @@ def test_parse_line_combined_and_dash_size():
     assert parse_line(LINE.replace("2326", "-")).size == 0
 
 
+def test_parse_line_keeps_requestless_and_malformed_requests():
+    timeout = parse_line(LINE.replace('"GET /a.gif HTTP/1.0" 200 2326', '"-" 408 -'))
+    assert (timeout.method, timeout.path, timeout.status, timeout.size) == ("-", "-", 408, 0)
+    binary = parse_line(LINE.replace('"GET /a.gif HTTP/1.0" 200 2326', r'"\x16\x03\x01" 400 150'))
+    assert (binary.method, binary.path, binary.status) == ("-", "-", 400)
+
+
+def test_parse_line_accepts_lowercase_method_and_escaped_quotes():
+    assert parse_line(LINE.replace("GET", "get")).method == "GET"
+    assert parse_line(LINE.replace("/a.gif", r"/a\"b.gif")).path == r"/a\"b.gif"
+
+
 def test_parse_lines_skips_malformed():
     assert len(list(parse_lines([LINE, "garbage", ""]))) == 1
+
+
+def test_parse_lines_reports_skipped_lines():
+    skipped = []
+    assert len(list(parse_lines([LINE, "garbage", "", "  "], on_skip=skipped.append))) == 1
+    assert skipped == ["garbage"]
 
 
 def test_bin_counts_includes_empty_windows():
@@ -48,3 +68,21 @@ def test_cli_reports_spike(tmp_path, capsys):
     assert main([str(log), "--window", "60"]) == 0
     out = capsys.readouterr().out
     assert "SPIKE" in out and "14:15" in out
+
+
+def test_cli_reports_sustained_shift_and_skipped_lines(tmp_path, capsys):
+    counts = np.random.default_rng(3).poisson(8, 120)
+    counts[40:70] += 6
+    base = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    lines = []
+    for minute, n in enumerate(counts):
+        for s in range(n):
+            stamp = (base + timedelta(minutes=minute, seconds=s)).strftime("%d/%b/%Y:%H:%M:%S +0000")
+            lines.append(LINE.replace("10/Oct/2000:13:55:36 -0700", stamp))
+    lines.insert(5, "not a log line")
+    log = tmp_path / "access.log"
+    log.write_text("\n".join(lines), encoding="utf-8")
+    assert main([str(log), "--window", "60"]) == 0
+    captured = capsys.readouterr()
+    assert "SUSTAINED 2025-01-01T00:" in captured.out
+    assert "1 line(s) could not be parsed" in captured.err
