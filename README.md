@@ -70,6 +70,10 @@ dispersion, and the real pipeline).
 sustained-shift test: the exact longest-run distribution checked against Schilling's
 Table 2, detection power and false alarms compared with the count test.
 
+[`notebooks/change_points.ipynb`](notebooks/change_points.ipynb) explores change-point detection
+(exact Poisson segmentation with a dispersion-scaled penalty): where a shift starts and ends,
+repairing the baseline, and why a daily cycle breaks it. Not yet part of the package.
+
 ## Roadmap
 
 - Time-of-day / weekly seasonality (non-homogeneous Poisson rate); the run test also needs it, since a daily cycle produces long runs

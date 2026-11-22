@@ -14,7 +14,7 @@ Standard: https://github.com/freesemt/ai-context-standard (context lives in the 
 - `src/poisson_log_analyzer/` — `parser.py` (log lines), `rates.py` (window counts), `detect.py` (spike count test), `runs.py` (longest-run test, Schilling 1990), `analyze.py` (both tests), `cli.py`
 - `tests/` — pytest suite (`test_pipeline.py`, `test_runs.py`; the run-length DP is checked against brute-force enumeration and the paper's tables)
 - `.github/workflows/tests.yml` — CI: pytest on Python 3.9–3.13
-- `notebooks/` — experiments and explanations (`traffic_spike_demo.ipynb`, `how_it_works.ipynb`, `longest_run.ipynb`); notebooks import the package instead of redefining its code
+- `notebooks/` — experiments and explanations (`traffic_spike_demo.ipynb`, `how_it_works.ipynb`, `longest_run.ipynb`, `change_points.ipynb`); notebooks import the package instead of redefining its code, except experiments that are not packaged yet (`change_points.ipynb`)
 
 ## Working Conventions
 
